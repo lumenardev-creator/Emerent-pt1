@@ -101,6 +101,11 @@ export default function Redistribution() {
     }
   };
 
+  const handleViewDetails = (redist: any) => {
+    setSelectedForDetails(redist);
+    setDetailsDialogOpen(true);
+  };
+
   // Get kiosk names
   const { data: kiosks } = useQuery({
     queryKey: ["all-kiosks"],
