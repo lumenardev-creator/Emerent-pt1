@@ -24,6 +24,7 @@ export default function KioskDashboard() {
   const { kioskId } = useAuth();
   const [restockDialogOpen, setRestockDialogOpen] = useState(false);
   const [surplusDialogOpen, setSurplusDialogOpen] = useState(false);
+  const [createRedistDialogOpen, setCreateRedistDialogOpen] = useState(false);
 
   // Fetch kiosk name
   const { data: kioskInfo } = useQuery({
