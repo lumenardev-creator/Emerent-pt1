@@ -102,13 +102,19 @@ export default function KioskDashboard() {
   };
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">
-          {kioskInfo?.name || 'Kiosk Dashboard'}
-        </h1>
-        <p className="text-muted-foreground">
-          {kioskInfo?.location || 'Monitor your inventory levels and manage redistribution requests'}
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            {kioskInfo?.name || 'Kiosk Dashboard'}
+          </h1>
+          <p className="text-muted-foreground">
+            {kioskInfo?.location || 'Monitor your inventory levels and manage redistribution requests'}
+          </p>
+        </div>
+        <Button onClick={() => setCreateRedistDialogOpen(true)}>
+          <ArrowUpCircle className="w-4 h-4 mr-2" />
+          Create Request
+        </Button>
       </div>
 
       {/* Stats Cards */}
