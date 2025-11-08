@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from algosdk import account, mnemonic, transaction
 from algosdk.v2client import algod, indexer
-from algosdk.future import transaction as future_transaction
+from algosdk.atomic_transaction_composer import AccountTransactionSigner
 import nacl.signing
 import nacl.exceptions
 
