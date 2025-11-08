@@ -1,0 +1,229 @@
+#pragma version 8
+intcblock 0 1
+bytecblock 0x61646d696e5f61646472657373 0x746f74616c5f7265646973747269627574696f6e73 0x
+txna ApplicationArgs 0
+pushbytes 0x4c5c61ba // "create()void"
+==
+bnz main_l10
+txna ApplicationArgs 0
+pushbytes 0x3852dffc // "attest_redistribution(string,byte[],string,string)void"
+==
+bnz main_l9
+txna ApplicationArgs 0
+pushbytes 0xf2eb2936 // "get_stats()uint64"
+==
+bnz main_l8
+txna ApplicationArgs 0
+pushbytes 0x4a165ee7 // "update_admin(address)void"
+==
+bnz main_l7
+txna ApplicationArgs 0
+pushbytes 0x24378d3c // "delete()void"
+==
+bnz main_l6
+err
+main_l6:
+txn OnCompletion
+pushint 5 // DeleteApplication
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub deletecaster_9
+intc_1 // 1
+return
+main_l7:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub updateadmincaster_8
+intc_1 // 1
+return
+main_l8:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub getstatscaster_7
+intc_1 // 1
+return
+main_l9:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub attestredistributioncaster_6
+intc_1 // 1
+return
+main_l10:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+==
+&&
+assert
+callsub createcaster_5
+intc_1 // 1
+return
+
+// create
+create_0:
+proto 0 0
+bytec_0 // "admin_address"
+txn Sender
+app_global_put
+bytec_1 // "total_redistributions"
+intc_0 // 0
+app_global_put
+pushbytes 0x76657273696f6e // "version"
+intc_1 // 1
+app_global_put
+intc_1 // 1
+return
+
+// attest_redistribution
+attestredistribution_1:
+proto 4 0
+txn Sender
+bytec_0 // "admin_address"
+app_global_get
+==
+// Only admin can attest
+assert
+frame_dig -3
+extract 2 0
+len
+pushint 32 // 32
+==
+// Invalid hash length
+assert
+bytec_1 // "total_redistributions"
+bytec_1 // "total_redistributions"
+app_global_get
+intc_1 // 1
++
+app_global_put
+pushbytes 0x5245444953545249425554494f4e3a // "REDISTRIBUTION:"
+frame_dig -4
+extract 2 0
+concat
+pushbytes 0x3a // ":"
+concat
+frame_dig -2
+extract 2 0
+concat
+pushbytes 0x2d3e // "->"
+concat
+frame_dig -1
+extract 2 0
+concat
+log
+intc_1 // 1
+return
+
+// get_stats
+getstats_2:
+proto 0 1
+intc_0 // 0
+bytec_1 // "total_redistributions"
+app_global_get
+frame_bury 0
+retsub
+
+// update_admin
+updateadmin_3:
+proto 1 0
+txn Sender
+bytec_0 // "admin_address"
+app_global_get
+==
+// Only admin can update admin
+assert
+bytec_0 // "admin_address"
+frame_dig -1
+app_global_put
+intc_1 // 1
+return
+
+// delete
+delete_4:
+proto 0 0
+txn Sender
+global CreatorAddress
+==
+// unauthorized
+assert
+intc_1 // 1
+return
+
+// create_caster
+createcaster_5:
+proto 0 0
+callsub create_0
+retsub
+
+// attest_redistribution_caster
+attestredistributioncaster_6:
+proto 0 0
+bytec_2 // ""
+dupn 3
+txna ApplicationArgs 1
+frame_bury 0
+txna ApplicationArgs 2
+frame_bury 1
+txna ApplicationArgs 3
+frame_bury 2
+txna ApplicationArgs 4
+frame_bury 3
+frame_dig 0
+frame_dig 1
+frame_dig 2
+frame_dig 3
+callsub attestredistribution_1
+retsub
+
+// get_stats_caster
+getstatscaster_7:
+proto 0 0
+intc_0 // 0
+callsub getstats_2
+frame_bury 0
+pushbytes 0x151f7c75 // 0x151f7c75
+frame_dig 0
+itob
+concat
+log
+retsub
+
+// update_admin_caster
+updateadmincaster_8:
+proto 0 0
+bytec_2 // ""
+txna ApplicationArgs 1
+frame_bury 0
+frame_dig 0
+callsub updateadmin_3
+retsub
+
+// delete_caster
+deletecaster_9:
+proto 0 0
+callsub delete_4
+retsub
