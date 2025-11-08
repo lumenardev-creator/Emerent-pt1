@@ -350,6 +350,111 @@ export default function Redistribution() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Redistribution Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedForDetails && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <Badge className={getStatusColor(selectedForDetails.status) + " mt-1"}>
+                    {selectedForDetails.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Created</p>
+                  <p className="text-sm mt-1">{new Date(selectedForDetails.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">From Kiosk</p>
+                  <p className="text-sm mt-1">{getKioskName(selectedForDetails.from_kiosk_id)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">To Kiosk</p>
+                  <p className="text-sm mt-1">{getKioskName(selectedForDetails.to_kiosk_id)}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Items</p>
+                <div className="bg-muted/50 rounded p-3">
+                  {selectedForDetails.items?.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-sm py-1">
+                      <span>{item.sku}</span>
+                      <span className="font-medium">{item.quantity} units</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedForDetails.pricing && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Pricing</p>
+                  <div className="bg-muted/50 rounded p-3 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total Cost:</span>
+                      <span>₹{selectedForDetails.pricing.total_cost?.toFixed(2) || "0.00"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Revenue:</span>
+                      <span>₹{selectedForDetails.pricing.total_revenue?.toFixed(2) || "0.00"}</span>
+                    </div>
+                    <div className="flex justify-between font-medium pt-1 border-t">
+                      <span>Net Value:</span>
+                      <span>₹{selectedForDetails.pricing.net_value?.toFixed(2) || "0.00"}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedForDetails.blockchain_ref && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Blockchain</p>
+                  <div className="bg-muted/50 rounded p-3 space-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Transaction ID:</span>
+                      <p className="font-mono text-xs mt-1 break-all">{selectedForDetails.txid}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Blockchain Reference:</span>
+                      <p className="font-mono text-xs mt-1">{selectedForDetails.blockchain_ref}</p>
+                    </div>
+                    {selectedForDetails.txid && !selectedForDetails.txid.startsWith('demo-') && (
+                      <a
+                        href={`https://testnet.algoexplorer.io/tx/${selectedForDetails.txid}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline text-sm inline-flex items-center gap-1"
+                      >
+                        <Link2 className="w-3 h-3" />
+                        View on AlgoExplorer
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Request ID</p>
+                <p className="text-xs font-mono mt-1 text-muted-foreground">{selectedForDetails.id}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setDetailsDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
