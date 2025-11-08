@@ -70,10 +70,14 @@ def deploy_contract():
     from contract import app
     
     # Create application client
+    from algosdk.atomic_transaction_composer import AccountTransactionSigner
+    
+    signer = AccountTransactionSigner(private_key)
+    
     app_client = beaker_client.ApplicationClient(
         client=client,
         app=app,
-        signer=private_key
+        signer=signer
     )
     
     print("🔨 Deploying contract...")
