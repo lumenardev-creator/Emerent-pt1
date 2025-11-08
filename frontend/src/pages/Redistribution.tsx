@@ -13,14 +13,25 @@ export default function Redistribution() {
   const queryClient = useQueryClient();
   const [selectedRedist, setSelectedRedist] = useState<any>(null);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedForDetails, setSelectedForDetails] = useState<any>(null);
 
-  // Fetch pending redistributions
+  // Fetch pending redistributions (poll every 5 seconds)
   const { data: redistributionsResponse, isLoading } = useQuery({
     queryKey: ["admin-redistributions"],
     queryFn: async () => {
       return listRedistributions({ status: "requested" });
     },
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 5000,
+  });
+
+  // Also fetch approved/in-progress ones
+  const { data: inProgressResponse } = useQuery({
+    queryKey: ["admin-redistributions-progress"],
+    queryFn: async () => {
+      return listRedistributions({});
+    },
+    refetchInterval: 3000, // Poll more frequently for in-progress
   });
 
   const redistributions = redistributionsResponse?.items || [];
