@@ -99,14 +99,14 @@ def attest_redistribution(
     ])
 
 @app.external(read_only=True)
-def get_stats() -> Expr:
+def get_stats(*, output: abi.Uint64) -> Expr:
     """
     Get contract statistics
     
     Returns:
         Total redistributions count
     """
-    return app.state.total_redistributions.get()
+    return output.set(app.state.total_redistributions)
 
 @app.external
 def update_admin(new_admin: abi.Address) -> Expr:
