@@ -239,6 +239,69 @@ export default function Redistribution() {
         </CardContent>
       </Card>
 
+      {/* All Redistributions with Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Redistributions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allRedistributions.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              No redistributions found
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {allRedistributions.map((redist: any) => (
+                <div
+                  key={redist.id}
+                  className="flex items-center justify-between p-4 bg-muted/30 rounded-xl"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <Package className="w-10 h-10 text-primary" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">
+                        {getKioskName(redist.from_kiosk_id)} → {getKioskName(redist.to_kiosk_id)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {redist.items?.length || 0} item(s) • {new Date(redist.created_at).toLocaleString()}
+                      </p>
+                      {redist.txid && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Link2 className="w-3 h-3" />
+                          TxID: {redist.txid.substring(0, 16)}...
+                        </p>
+                      )}
+                      {redist.blockchain_ref && (
+                        <a
+                          href={`https://testnet.algoexplorer.io/tx/${redist.txid}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline mt-1 inline-block"
+                        >
+                          View on AlgoExplorer →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary" className={getStatusColor(redist.status) + " capitalize"}>
+                      {redist.status}
+                    </Badge>
+                    <Button
+                      onClick={() => handleViewDetails(redist)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Details
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Approve Confirmation Dialog */}
       <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
         <DialogContent>
