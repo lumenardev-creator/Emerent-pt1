@@ -3,7 +3,7 @@ Abstract base class for blockchain adapters
 """
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
-from .types import ChainSubmission, SubmittedTx, OnChainTx
+from .chain_types import ChainSubmission, SubmittedTx, OnChainTx
 
 class ChainAdapter(ABC):
     """Abstract blockchain adapter interface"""
