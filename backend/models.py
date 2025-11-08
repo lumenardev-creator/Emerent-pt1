@@ -42,8 +42,8 @@ class CreateRedistributionRequest(BaseModel):
     to_kiosk_id: str
     items: List[RedistributionItem]
     client_req_id: str
-    signature: str = Field(description="Base64 encoded Ed25519 signature")
-    public_key: str = Field(description="Base64 encoded Ed25519 public key")
+    signature: Optional[str] = Field(default="", description="Base64 encoded Ed25519 signature")
+    public_key: Optional[str] = Field(default="", description="Base64 encoded Ed25519 public key")
 
 class ApproveRedistributionRequest(BaseModel):
     admin_wallet: str = Field(description="Algorand wallet address")
