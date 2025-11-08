@@ -280,6 +280,11 @@ export default function KioskDashboard() {
       </Card>
 
       {/* Dialogs */}
+      <CreateRedistributionDialog
+        open={createRedistDialogOpen}
+        onOpenChange={setCreateRedistDialogOpen}
+      />
+      
       <RestockDialog
         open={restockDialogOpen}
         onOpenChange={setRestockDialogOpen}
