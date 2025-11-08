@@ -242,28 +242,27 @@ export default function KioskDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {pendingRequests?.length === 0 ? (
+            {!pendingRequests || pendingRequests.length === 0 ? (
               <div className="text-center text-muted-foreground py-8">
                 No pending requests
               </div>
             ) : (
-              pendingRequests?.map((request: any) => (
+              pendingRequests.map((request: any) => (
                 <div key={request.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
                   <div className="flex items-center gap-4">
                     <Package className="w-10 h-10 text-primary" />
                     <div>
                       <p className="font-semibold text-foreground">
-                        {request.from_kiosk_id ? "Sending" : "Requesting"}: {request.products.name}
+                        Redistribution Request
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Quantity: {request.quantity} {request.unit} • {new Date(request.created_at).toLocaleString()}
+                        Items: {request.items?.length || 0} • {new Date(request.created_at).toLocaleString()}
                       </p>
-                      <p className="text-xs text-muted-foreground">Request ID: {request.id}</p>
+                      <p className="text-xs text-muted-foreground">Request ID: {request.id.substring(0, 8)}...</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="secondary" className="bg-warning/20 text-warning">{request.priority}</Badge>
-                    <Badge variant="secondary" className="bg-warning/30 text-warning">Pending Approval</Badge>
+                    <Badge variant="secondary" className="bg-warning/30 text-warning capitalize">{request.status}</Badge>
                   </div>
                 </div>
               ))
