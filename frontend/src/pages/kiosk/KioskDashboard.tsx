@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { RestockDialog } from "@/components/RestockDialog";
 import { SurplusDialog } from "@/components/SurplusDialog";
+import { listRedistributions } from "@/lib/api";
 
 interface InventoryItem {
   id: string;
@@ -22,6 +23,22 @@ export default function KioskDashboard() {
   const { kioskId } = useAuth();
   const [restockDialogOpen, setRestockDialogOpen] = useState(false);
   const [surplusDialogOpen, setSurplusDialogOpen] = useState(false);
+
+  // Fetch kiosk name
+  const { data: kioskInfo } = useQuery({
+    queryKey: ["kiosk-info", kioskId],
+    enabled: !!kioskId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("kiosks")
+        .select("name, location")
+        .eq("id", kioskId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: inventoryItems } = useQuery({
     queryKey: ["kiosk-inventory", kioskId],
@@ -54,28 +71,23 @@ export default function KioskDashboard() {
     },
   });
 
-  const { data: pendingRequests } = useQuery({
+  // Use new API for redistributions
+  const { data: redistributionsResponse } = useQuery({
     queryKey: ["kiosk-redistributions", kioskId],
     enabled: !!kioskId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("redistributions")
-        .select(`
-          *,
-          products (name),
-          from_kiosk:from_kiosk_id (name),
-          to_kiosk:to_kiosk_id (name)
-        `)
-        .or(`from_kiosk_id.eq.${kioskId},to_kiosk_id.eq.${kioskId}`)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      if (error) throw error;
-      return data;
+      if (!kioskId) return { items: [], total: 0, limit: 10, offset: 0 };
+      
+      return listRedistributions({
+        from_kiosk_id: kioskId,
+        status: 'requested',
+        limit: 5
+      });
     },
   });
 
+  const pendingRequests = redistributionsResponse?.items || [];
+  
   const lowStockItems = inventoryItems?.filter(item => item.quantity < item.threshold) || [];
   const surplusItems = inventoryItems?.filter(item => item.quantity > item.threshold * 1.5) || [];
   const totalValue = inventoryItems?.reduce((sum, item) => sum + (item.quantity * 100), 0) || 0;
