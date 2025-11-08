@@ -35,6 +35,20 @@ export default function Redistribution() {
   });
 
   const redistributions = redistributionsResponse?.items || [];
+  const allRedistributions = inProgressResponse?.items || [];
+  
+  // Get status badge color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'requested': return 'bg-warning/30 text-warning';
+      case 'approved': return 'bg-blue-500/30 text-blue-500';
+      case 'submitted': return 'bg-purple-500/30 text-purple-500';
+      case 'fulfilled': return 'bg-green-500/30 text-green-500';
+      case 'reconciled': return 'bg-emerald-500/30 text-emerald-500';
+      case 'failed': return 'bg-destructive/30 text-destructive';
+      default: return 'bg-secondary';
+    }
+  };
 
   // Get admin wallet address
   const { data: adminWallet } = useQuery({
