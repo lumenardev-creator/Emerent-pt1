@@ -101,8 +101,12 @@ export default function KioskDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Downtown Fresh Market</h1>
-        <p className="text-muted-foreground">Monitor your inventory levels and manage redistribution requests</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          {kioskInfo?.name || 'Kiosk Dashboard'}
+        </h1>
+        <p className="text-muted-foreground">
+          {kioskInfo?.location || 'Monitor your inventory levels and manage redistribution requests'}
+        </p>
       </div>
 
       {/* Stats Cards */}
