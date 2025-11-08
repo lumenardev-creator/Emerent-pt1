@@ -1,244 +1,262 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, AlertTriangle, CheckCircle2, Package, TrendingUp, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Clock, CheckCircle2, Package, Loader2, XCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { listRedistributions, approveRedistribution } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function Redistribution() {
   const queryClient = useQueryClient();
+  const [selectedRedist, setSelectedRedist] = useState<any>(null);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
 
-  const { data: redistributions, isLoading } = useQuery({
+  // Fetch pending redistributions
+  const { data: redistributionsResponse, isLoading } = useQuery({
     queryKey: ["admin-redistributions"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("redistributions")
-        .select(`
-          *,
-          products (name, sku),
-          from_kiosk:from_kiosk_id (name, kiosk_code),
-          to_kiosk:to_kiosk_id (name, kiosk_code)
-        `)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
+      return listRedistributions({ status: "requested" });
     },
+    refetchInterval: 5000, // Poll every 5 seconds
   });
 
-  const { data: stats } = useQuery({
-    queryKey: ["redistribution-stats"],
+  const redistributions = redistributionsResponse?.items || [];
+
+  // Get admin wallet address
+  const { data: adminWallet } = useQuery({
+    queryKey: ["admin-wallet"],
     queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const [pending, highPriority, approved, inTransit] = await Promise.all([
-        supabase.from("redistributions").select("id", { count: "exact" }).eq("status", "pending"),
-        supabase.from("redistributions").select("id", { count: "exact" }).eq("status", "pending").eq("priority", "High Priority"),
-        supabase.from("redistributions").select("id", { count: "exact" }).eq("status", "approved").gte("completed_at", today.toISOString()),
-        supabase.from("transactions").select("id", { count: "exact" }).eq("status", "pending"),
-      ]);
-
-      return {
-        pending: pending.count || 0,
-        highPriority: highPriority.count || 0,
-        approved: approved.count || 0,
-        inTransit: inTransit.count || 0,
-      };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
+      const { data, error } = await supabase
+        .from("admins")
+        .select("wallet_address")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (error) throw error;
+      return data.wallet_address;
     },
   });
 
-  const approveRequestMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("redistributions")
-        .update({ status: "approved", completed_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+  // Approve mutation
+  const approveMutation = useMutation({
+    mutationFn: async (redistributionId: string) => {
+      if (!adminWallet) throw new Error("Admin wallet not found");
+      
+      return approveRedistribution(
+        redistributionId,
+        adminWallet,
+        `approve-${redistributionId}-${Date.now()}`
+      );
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Request approved successfully" });
+      toast.success("Redistribution approved successfully!");
       queryClient.invalidateQueries({ queryKey: ["admin-redistributions"] });
-      queryClient.invalidateQueries({ queryKey: ["redistribution-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["kiosk-requests-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["kiosk-redistributions"] });
+      setApproveDialogOpen(false);
+      setSelectedRedist(null);
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to approve request", variant: "destructive" });
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to approve redistribution");
     },
   });
 
-  const rejectRequestMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("redistributions")
-        .update({ status: "rejected" })
-        .eq("id", id);
+  const handleApprove = (redist: any) => {
+    setSelectedRedist(redist);
+    setApproveDialogOpen(true);
+  };
+
+  const confirmApprove = () => {
+    if (selectedRedist) {
+      approveMutation.mutate(selectedRedist.id);
+    }
+  };
+
+  // Get kiosk names
+  const { data: kiosks } = useQuery({
+    queryKey: ["all-kiosks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("kiosks")
+        .select("id, name");
+      
       if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Request declined" });
-      queryClient.invalidateQueries({ queryKey: ["admin-redistributions"] });
-      queryClient.invalidateQueries({ queryKey: ["redistribution-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["kiosk-requests-notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["kiosk-redistributions"] });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to decline request", variant: "destructive" });
+      return data.reduce((acc: any, k: any) => {
+        acc[k.id] = k.name;
+        return acc;
+      }, {});
     },
   });
 
-  const statsCards = [
-    {
-      title: "Pending Requests",
-      value: stats?.pending?.toString() || "0",
-      icon: Clock,
-      color: "bg-primary/10 text-primary",
-    },
-    {
-      title: "High Priority",
-      value: stats?.highPriority?.toString() || "0",
-      icon: AlertTriangle,
-      color: "bg-destructive/10 text-destructive",
-    },
-    {
-      title: "Today's Approved",
-      value: stats?.approved?.toString() || "0",
-      icon: CheckCircle2,
-      color: "bg-success/10 text-success",
-    },
-    {
-      title: "Items in Transit",
-      value: stats?.inTransit?.toString() || "0",
-      icon: Package,
-      color: "bg-warning/10 text-warning",
-    },
-  ];
+  const getKioskName = (kioskId: string) => {
+    return kiosks?.[kioskId] || kioskId.substring(0, 8);
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-heading font-bold text-foreground mb-2">Redistribution Management</h1>
-        <p className="text-muted-foreground">Review and approve kiosk redistribution requests</p>
+        <h1 className="text-4xl font-heading font-bold text-foreground mb-3">
+          Redistribution Approvals
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Review and approve inventory redistribution requests
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsCards.map((stat, index) => (
-          <Card key={stat.title} className="hover-lift overflow-hidden relative" style={{ animationDelay: `${index * 0.1}s` }}>
-            <div className="absolute top-0 right-0 w-24 h-24 opacity-10 rounded-full blur-2xl" style={{ background: `hsl(var(--${stat.color.split(' ')[0].replace('bg-', '')}))` }}></div>
-            <CardContent className="pt-6 relative z-10">
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${stat.color} shadow-md hover-scale`}>
-                  <stat.icon className="w-7 h-7" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
-                  <p className="text-3xl font-heading font-bold">{stat.value}</p>
-                </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Pending Requests</p>
+                <p className="text-3xl font-bold">{redistributions.length}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              <Clock className="w-10 h-10 text-warning" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Approved Today</p>
+                <p className="text-3xl font-bold">0</p>
+              </div>
+              <CheckCircle2 className="w-10 h-10 text-success" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">In Progress</p>
+                <p className="text-3xl font-bold">0</p>
+              </div>
+              <Package className="w-10 h-10 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Requests List */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Redistribution Requests</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Review kiosk requests and approve with optimal fulfillment strategies
-          </p>
+          <CardTitle>Pending Requests</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center text-muted-foreground py-8">Loading requests...</div>
-          ) : !redistributions || redistributions.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">No pending requests</div>
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : redistributions.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              No pending requests
+            </div>
           ) : (
             <div className="space-y-4">
-              {redistributions.map((request: any, index: number) => (
-                <Card key={request.id} className="border-2 hover-lift overflow-hidden relative" style={{ animationDelay: `${index * 0.1}s` }}>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl"></div>
-                  <CardContent className="pt-6 relative z-10">
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4 flex-1">
-                          <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-md hover-scale">
-                            <TrendingUp className="w-6 h-6 text-primary-foreground" />
-                          </div>
-                          
-                          <div className="flex-1 space-y-3">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <span className="font-heading font-semibold text-base">Requesting Items</span>
-                              <Badge variant="secondary" className={`${
-                                request.priority === "High Priority" 
-                                  ? "bg-destructive/15 text-destructive border-destructive/30 font-semibold" 
-                                  : "bg-warning/15 text-warning border-warning/30 font-semibold"
-                              }`}>
-                                {request.priority}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground font-mono">#{request.id.slice(0, 8)}</span>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="p-3 rounded-lg bg-accent/20 border border-accent/30">
-                                <p className="font-heading font-semibold text-sm mb-1">{request.to_kiosk?.name || "Unknown Kiosk"}</p>
-                                <p className="text-xs text-muted-foreground font-mono">{request.to_kiosk?.kiosk_code || "N/A"}</p>
-                              </div>
-                              
-                              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                                <p className="font-heading font-semibold text-sm mb-1">{request.products?.name || "Unknown Product"}</p>
-                                <p className="text-xs text-muted-foreground">Quantity: <span className="font-semibold">{request.quantity} {request.unit}</span></p>
-                              </div>
-                              
-                              <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                                <p className="text-xs text-muted-foreground mb-1">Created</p>
-                                <p className="text-sm font-medium">{new Date(request.created_at).toLocaleString()}</p>
-                              </div>
-                            </div>
-
-                            <div>
-                              <p className="text-sm font-semibold mb-2">Reason:</p>
-                              <div className="bg-muted/50 rounded-lg p-3 min-h-[60px]">
-                                {request.reason ? (
-                                  <p className="text-sm text-muted-foreground">{request.reason}</p>
-                                ) : (
-                                  <p className="text-sm text-muted-foreground italic">No reason provided</p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+              {redistributions.map((redist: any) => (
+                <div
+                  key={redist.id}
+                  className="flex items-center justify-between p-4 bg-muted/30 rounded-xl"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <Package className="w-10 h-10 text-primary" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-foreground">
+                        {getKioskName(redist.from_kiosk_id)} → {getKioskName(redist.to_kiosk_id)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {redist.items?.length || 0} item(s) • Created {new Date(redist.created_at).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Request ID: {redist.id.substring(0, 16)}...
+                      </p>
+                      {redist.items && redist.items.length > 0 && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Items: {redist.items.map((item: any) => `${item.sku} (${item.quantity})`).join(", ")}
                         </div>
-
-                        <div className="flex flex-col gap-2 ml-4">
-                          <Button 
-                            className="bg-success hover:bg-success/90 whitespace-nowrap"
-                            onClick={() => approveRequestMutation.mutate(request.id)}
-                            disabled={approveRequestMutation.isPending}
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Review & Approve
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            className="text-destructive hover:text-destructive whitespace-nowrap"
-                            onClick={() => rejectRequestMutation.mutate(request.id)}
-                            disabled={rejectRequestMutation.isPending}
-                          >
-                            <X className="w-4 h-4 mr-2" />
-                            Decline
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary" className="bg-warning/30 text-warning capitalize">
+                      {redist.status}
+                    </Badge>
+                    <Button
+                      onClick={() => handleApprove(redist)}
+                      disabled={approveMutation.isPending}
+                      size="sm"
+                    >
+                      {approveMutation.isPending && selectedRedist?.id === redist.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Approve"
+                      )}
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approve Redistribution</DialogTitle>
+            <DialogDescription>
+              This will create a blockchain command for processing. The redistribution will be recorded on Algorand TestNet.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedRedist && (
+            <div className="space-y-3 py-4">
+              <div>
+                <p className="text-sm font-medium">From:</p>
+                <p className="text-sm text-muted-foreground">{getKioskName(selectedRedist.from_kiosk_id)}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">To:</p>
+                <p className="text-sm text-muted-foreground">{getKioskName(selectedRedist.to_kiosk_id)}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Items:</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedRedist.items?.map((item: any) => `${item.sku}: ${item.quantity}`).join(", ")}
+                </p>
+              </div>
+              {selectedRedist.pricing && (
+                <div>
+                  <p className="text-sm font-medium">Pricing:</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total: ₹{selectedRedist.pricing.total_revenue?.toFixed(2) || "N/A"}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproveDialogOpen(false)} disabled={approveMutation.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={confirmApprove} disabled={approveMutation.isPending}>
+              {approveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Confirm Approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
