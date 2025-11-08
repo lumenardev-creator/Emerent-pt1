@@ -15,7 +15,7 @@ import nacl.signing
 import nacl.exceptions
 
 from .adapter import ChainAdapter
-from .types import ChainSubmission, SubmittedTx, OnChainTx
+from .chain_types import ChainSubmission, SubmittedTx, OnChainTx
 from utils.signatures import canonicalize_payload, hash_payload
 
 class AlgorandHybridAdapter(ChainAdapter):
